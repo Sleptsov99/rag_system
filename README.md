@@ -88,13 +88,6 @@ docker compose up -d
 | `OPENAI_API_KEY` | Ключ OpenAI (опционально) | `sk-...` |
 | `OLLAMA_URL` | URL Ollama (только локально) | `http://localhost:11434` |
 
-## LLM-провайдеры
-
-| Провайдер | Стоимость | Скорость | Как получить |
-|---|---|---|---|
-| **Groq** | Бесплатно | Очень быстро | [console.groq.com](https://console.groq.com) |
-| **OpenAI** | Платно | Быстро | [platform.openai.com](https://platform.openai.com) |
-| **Ollama** | Бесплатно | Медленно (CPU) | [ollama.com](https://ollama.com) |
 
 ## Команды бота
 
@@ -108,26 +101,6 @@ docker compose up -d
 | `/users` | Список пользователей *(только админ)* |
 | `/adduser <id>` | Добавить пользователя *(только админ)* |
 | `/removeuser <id>` | Удалить пользователя *(только админ)* |
-
-## Деплой на сервер
-
-Рекомендуется **Oracle Cloud Always Free** (бесплатно навсегда, 1GB RAM):
-
-```bash
-# На сервере
-curl -fsSL https://get.docker.com | sh
-git clone https://github.com/<your-username>/rag_system.git
-cd rag_system
-nano .env          # вставить ключи
-docker compose up -d
-
-# Логи
-docker compose logs -f
-
-# Перезапуск после изменений
-git pull
-docker compose up -d --build
-```
 
 ## Автор
 
