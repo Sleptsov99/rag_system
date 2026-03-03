@@ -530,8 +530,25 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         tmp_path.unlink(missing_ok=True)
 
 
+_CASUAL_PHRASES = {
+    "спасибо", "спс", "благодарю", "ок", "окей", "хорошо", "понял",
+    "понятно", "да", "нет", "ладно", "отлично", "супер", "класс", "норм",
+    "thanks", "thank you", "ok", "okay", "cool", "nice", "great",
+    "привет", "хай", "hi", "hello", "пока", "bye", "👍", "👌",
+}
+
+
 @require_access
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    question = update.message.text.strip()
+
+    # Ignore casual/greeting messages — don't run RAG on them
+    if question.lower().rstrip("!?. ") in _CASUAL_PHRASES or len(question) <= 3:
+        await update.message.reply_text(
+            "Задайте вопрос по вашим документам — я постараюсь найти ответ!"
+        )
+        return
+
     pipeline = _get_pipeline(update.effective_user.id)
 
     if pipeline.document_count == 0:
