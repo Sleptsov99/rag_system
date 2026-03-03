@@ -1,0 +1,7 @@
+services:
+  bot:
+    build: .
+    restart: unless-stopped   # автоматически перезапускается после сбоя или перезагрузки сервера
+    env_file: .env
+    volumes:
+      - ./data:/app/data      # ChromaDB и whitelist хранятся на диске сервера
