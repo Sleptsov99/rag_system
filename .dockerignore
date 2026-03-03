@@ -1,0 +1,12 @@
+.env
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+data/chroma_db
+data/documents
+data/allowed_users.json
+data/registrations.json
+*.md
