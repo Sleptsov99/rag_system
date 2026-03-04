@@ -37,45 +37,6 @@ rag_system/
     └── registrations.json  # Заявки на доступ
 ```
 
-## Быстрый старт
-
-### 1. Клонировать репозиторий
-
-```bash
-git clone https://github.com/<your-username>/rag_system.git
-cd rag_system
-```
-
-### 2. Создать `.env`
-
-```bash
-cp .env.example .env
-```
-
-Заполнить `.env`:
-
-```env
-TELEGRAM_BOT_TOKEN=токен_от_botfather
-TELEGRAM_ADMIN_IDS=ваш_telegram_id
-
-LLM_PROVIDER=groq
-GROQ_API_KEY=gsk_...
-GROQ_MODEL=llama-3.1-8b-instant
-```
-
-### 3. Запустить
-
-**Локально:**
-```bash
-pip install -r requirements.txt
-python3 bot.py
-```
-
-**Через Docker:**
-```bash
-docker compose up -d
-```
-
 ## Переменные окружения
 
 | Переменная | Описание | Пример |
