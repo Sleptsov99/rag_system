@@ -50,10 +50,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
 ASK_PURPOSE = 0  # ConversationHandler state
 
 BOT_DESCRIPTION = (
@@ -65,10 +61,6 @@ BOT_DESCRIPTION = (
 
 CREATOR_NAME = "Кирилл Слепцов"
 CREATOR_TG = "@kira2299"
-
-# ---------------------------------------------------------------------------
-# Whitelist helpers
-# ---------------------------------------------------------------------------
 
 _WHITELIST_PATH = Path("data/allowed_users.json")
 
@@ -94,10 +86,6 @@ def _is_allowed(user_id: int) -> bool:
 def _is_admin(user_id: int) -> bool:
     return user_id in default_config.TELEGRAM_ADMIN_IDS
 
-
-# ---------------------------------------------------------------------------
-# Registration helpers
-# ---------------------------------------------------------------------------
 
 _REGISTRATIONS_PATH = Path("data/registrations.json")
 
@@ -141,10 +129,6 @@ def _update_registration_status(user_id: int, status: str) -> None:
         _save_registrations(regs)
 
 
-# ---------------------------------------------------------------------------
-# Per-user pipeline cache
-# ---------------------------------------------------------------------------
-
 _pipelines: dict[int, RAGPipeline] = {}
 
 
@@ -155,10 +139,6 @@ def _get_pipeline(user_id: int) -> RAGPipeline:
         _pipelines[user_id] = RAGPipeline(cfg=cfg)
     return _pipelines[user_id]
 
-
-# ---------------------------------------------------------------------------
-# Access control
-# ---------------------------------------------------------------------------
 
 def require_access(func):
     @wraps(func)
@@ -193,15 +173,10 @@ def require_admin(func):
     return wrapper
 
 
-# ---------------------------------------------------------------------------
-# Registration flow (ConversationHandler)
-# ---------------------------------------------------------------------------
-
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
     user_id = user.id
 
-    # Admin
     if _is_admin(user_id):
         await update.message.reply_text(
             f"Добро пожаловать, администратор!\n\n"
@@ -214,7 +189,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
         return ConversationHandler.END
 
-    # Already allowed
     if _is_allowed(user_id):
         await update.message.reply_text(
             "Вы уже зарегистрированы и можете пользоваться ботом.\n\n"
@@ -223,7 +197,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
         return ConversationHandler.END
 
-    # Check existing registration
     reg = _get_registration(user_id)
     if reg:
         if reg["status"] == "pending":
@@ -240,7 +213,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             )
             return ConversationHandler.END
 
-    # New user — start registration
     await update.message.reply_text(
         f"Привет, {user.first_name}! 👋\n\n"
         f"{BOT_DESCRIPTION}\n\n"
@@ -269,7 +241,6 @@ async def receive_purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         status="pending",
     )
 
-    # Notify all admins
     username_str = f"@{user.username}" if user.username else "без username"
     text = (
         f"📬 <b>Новая заявка на доступ</b>\n\n"
@@ -301,10 +272,6 @@ async def receive_purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
     return ConversationHandler.END
 
-
-# ---------------------------------------------------------------------------
-# Approval / rejection callback
-# ---------------------------------------------------------------------------
 
 async def handle_approval_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -352,10 +319,6 @@ async def handle_approval_callback(update: Update, context: ContextTypes.DEFAULT
         await query.edit_message_text(f"❌ Пользователь {name} ({user_id}) отклонён.")
 
 
-# ---------------------------------------------------------------------------
-# General commands
-# ---------------------------------------------------------------------------
-
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     lines = [
@@ -395,10 +358,6 @@ async def cmd_clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     pipeline.clear_index()
     await update.message.reply_text("Все твои документы удалены из индекса.")
 
-
-# ---------------------------------------------------------------------------
-# Admin commands
-# ---------------------------------------------------------------------------
 
 @require_admin
 async def cmd_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -475,7 +434,6 @@ async def cmd_requests(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             f"📝 {r['purpose']}"
         )
     keyboard = None
-    # Show approve/reject buttons only if single pending request
     if len(pending) == 1:
         uid = pending[0]["user_id"]
         keyboard = InlineKeyboardMarkup([[
@@ -486,10 +444,6 @@ async def cmd_requests(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "\n".join(lines), parse_mode="HTML", reply_markup=keyboard
     )
 
-
-# ---------------------------------------------------------------------------
-# Document & message handlers
-# ---------------------------------------------------------------------------
 
 @require_access
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -542,7 +496,6 @@ _CASUAL_PHRASES = {
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     question = update.message.text.strip()
 
-    # Ignore casual/greeting messages — don't run RAG on them
     if question.lower().rstrip("!?. ") in _CASUAL_PHRASES or len(question) <= 3:
         await update.message.reply_text(
             "Задайте вопрос по вашим документам — я постараюсь найти ответ!"
@@ -566,10 +519,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         logger.exception("Error answering question")
         await update.message.reply_text(f"Ошибка при генерации ответа: {e}")
 
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 def _warmup_ollama() -> None:
     if default_config.LLM_PROVIDER != "ollama":
@@ -604,7 +553,6 @@ def main() -> None:
 
     app = Application.builder().token(token).build()
 
-    # Registration conversation
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", cmd_start)],
         states={

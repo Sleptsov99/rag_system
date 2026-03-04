@@ -5,33 +5,22 @@ from pathlib import Path
 
 @dataclass
 class Config:
-    # --- Paths ---
     DATA_DIR: Path = field(default_factory=lambda: Path("data/documents"))
     CHROMA_DIR: Path = field(default_factory=lambda: Path("data/chroma_db"))
-
-    # --- Embedding model ---
-    # Multilingual model: handles Russian + English out of the box
     EMBEDDING_MODEL: str = "paraphrase-multilingual-MiniLM-L12-v2"
 
     # --- Text chunking ---
-    CHUNK_SIZE: int = 1000      # characters per chunk
-    CHUNK_OVERLAP: int = 150    # overlap between adjacent chunks
+    CHUNK_SIZE: int = 1000
+    CHUNK_OVERLAP: int = 150
 
     # --- Retrieval ---
-    TOP_K: int = 3              # how many chunks to retrieve per query
+    TOP_K: int = 3
 
     # --- LLM backend ---
-    # Options: "ollama" (local, default) | "openai" (needs OPENAI_API_KEY)
     LLM_PROVIDER: str = field(default_factory=lambda: os.environ.get("LLM_PROVIDER", "ollama"))
-
-    # Ollama settings — override via env variables when running in Docker
     OLLAMA_MODEL: str = field(default_factory=lambda: os.environ.get("OLLAMA_MODEL", "llama3.2:1b"))
     OLLAMA_URL: str = field(default_factory=lambda: os.environ.get("OLLAMA_URL", "http://localhost:11434"))
-
-    # OpenAI settings (set OPENAI_API_KEY env variable)
     OPENAI_MODEL: str = field(default_factory=lambda: os.environ.get("OPENAI_MODEL", "gpt-4o-mini"))
-
-    # Groq settings (set GROQ_API_KEY env variable)
     GROQ_MODEL: str = field(default_factory=lambda: os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant"))
 
     # --- ChromaDB ---

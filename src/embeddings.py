@@ -1,15 +1,4 @@
-"""
-Embeddings
-==========
-Wraps sentence-transformers to produce dense vector representations.
-
-Key concepts:
-  • An embedding is a fixed-length float vector (e.g. 384-dim) that encodes
-    the semantic meaning of a text.
-  • Similar texts → nearby vectors in the embedding space.
-  • We use the same model for both documents AND queries so that their
-    vectors live in the same space and cosine similarity is meaningful.
-"""
+"""Wraps sentence-transformers to produce dense vector representations."""
 
 from __future__ import annotations
 
@@ -21,14 +10,7 @@ from config import config
 
 
 class EmbeddingModel:
-    """
-    Thin wrapper around SentenceTransformer.
-
-    Model choice: 'paraphrase-multilingual-MiniLM-L12-v2'
-      • 384-dimensional embeddings
-      • Supports 50+ languages including Russian
-      • ~120 MB on disk; fast even on CPU
-    """
+    """Thin wrapper around SentenceTransformer."""
 
     def __init__(self, model_name: str | None = None):
         model_name = model_name or config.EMBEDDING_MODEL
@@ -48,10 +30,7 @@ class EmbeddingModel:
         batch_size: int = 64,
         show_progress: bool = True,
     ) -> list[list[float]]:
-        """
-        Embed a list of texts in mini-batches.
-        normalize_embeddings=True → cosine similarity = dot product.
-        """
+        """Embed a list of texts in mini-batches."""
         vectors: np.ndarray = self._model.encode(
             texts,
             batch_size=batch_size,

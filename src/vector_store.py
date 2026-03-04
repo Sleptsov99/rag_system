@@ -1,19 +1,4 @@
-"""
-Vector Store  (ChromaDB)
-========================
-ChromaDB is an open-source, embeddable vector database.
-It stores:
-  • document text   (the raw chunk)
-  • embedding       (the dense float vector)
-  • metadata        (source file, chunk_id, …)
-
-All three are retrievable together on a single query.
-
-ChromaDB distance metrics:
-  • "cosine"  — cosine similarity (good for normalised embeddings)
-  • "l2"      — Euclidean distance
-  • "ip"      — inner product (= cosine when vectors are unit-length)
-"""
+"""Persistent ChromaDB vector store for document chunks and embeddings."""
 
 from __future__ import annotations
 
@@ -28,14 +13,7 @@ from src.embeddings import EmbeddingModel
 
 
 class VectorStore:
-    """
-    Persistent ChromaDB collection that holds document chunks + embeddings.
-
-    Usage:
-        store = VectorStore(embedding_model)
-        store.add_documents(chunks)
-        results = store.search("какой налог на прибыль?", top_k=5)
-    """
+    """Persistent ChromaDB collection that holds document chunks + embeddings."""
 
     def __init__(
         self,
@@ -53,14 +31,10 @@ class VectorStore:
         )
         self._collection = self._client.get_or_create_collection(
             name=collection_name or config.COLLECTION_NAME,
-            metadata={"hnsw:space": "cosine"},   # cosine similarity index
+            metadata={"hnsw:space": "cosine"},
         )
         print(f"ChromaDB collection '{self._collection.name}' "
               f"({self._collection.count()} docs already stored)")
-
-    # ------------------------------------------------------------------
-    # Write
-    # ------------------------------------------------------------------
 
     def add_documents(self, documents: list[Document], batch_size: int = 100) -> None:
         """
@@ -74,14 +48,12 @@ class VectorStore:
         print(f"Embedding {len(texts)} chunks…")
         embeddings = self._embedding.embed_batch(texts)
 
-        # Build IDs: source_path::chunk_id  (made safe for ChromaDB)
         ids = [self._make_id(doc) for doc in documents]
         metadatas = [
             {"source": doc.source, "chunk_id": doc.chunk_id, **doc.metadata}
             for doc in documents
         ]
 
-        # Insert in batches to avoid memory spikes
         for start in range(0, len(documents), batch_size):
             end = start + batch_size
             self._collection.upsert(
@@ -101,10 +73,6 @@ class VectorStore:
             metadata={"hnsw:space": "cosine"},
         )
         print("Collection cleared.")
-
-    # ------------------------------------------------------------------
-    # Read
-    # ------------------------------------------------------------------
 
     def search(
         self,
@@ -139,7 +107,6 @@ class VectorStore:
             results["metadatas"][0],
             results["distances"][0],
         ):
-            # ChromaDB "cosine" space returns distance = 1 - similarity
             score = round(1.0 - dist, 4)
             hits.append({
                 "text": text,
@@ -153,10 +120,6 @@ class VectorStore:
 
     def count(self) -> int:
         return self._collection.count()
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _make_id(doc: Document) -> str:

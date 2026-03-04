@@ -1,11 +1,4 @@
-"""
-Document Processor
-==================
-Three responsibilities:
-  1. DocumentLoader   — reads PDF / DOCX / TXT files into plain text
-  2. TextPreprocessor — tokenisation, stop-word removal, lemmatisation
-  3. TextChunker      — splits long texts into overlapping chunks
-"""
+"""Document loading, text preprocessing, and chunking."""
 
 from __future__ import annotations
 
@@ -17,7 +10,6 @@ from typing import Optional
 
 import nltk
 
-# Download required NLTK data on first run (silent after that)
 for _pkg in ("punkt", "punkt_tab", "stopwords"):
     try:
         nltk.data.find(f"tokenizers/{_pkg}" if _pkg.startswith("punkt") else f"corpora/{_pkg}")
@@ -27,7 +19,6 @@ for _pkg in ("punkt", "punkt_tab", "stopwords"):
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
-# Optional: Russian lemmatiser (pymorphy2). Falls back gracefully if absent.
 try:
     import pymorphy3 as pymorphy2
     _morph = pymorphy2.MorphAnalyzer()
@@ -35,24 +26,18 @@ try:
 except ImportError:
     _PYMORPHY_AVAILABLE = False
 
-# Optional: PDF support
 try:
     import PyPDF2
     _PDF_AVAILABLE = True
 except ImportError:
     _PDF_AVAILABLE = False
 
-# Optional: DOCX support
 try:
     from docx import Document as DocxDocument
     _DOCX_AVAILABLE = True
 except ImportError:
     _DOCX_AVAILABLE = False
 
-
-# ---------------------------------------------------------------------------
-# Data models
-# ---------------------------------------------------------------------------
 
 @dataclass
 class Document:
@@ -66,10 +51,6 @@ class Document:
         preview = self.text[:80].replace("\n", " ")
         return f"Document(source={self.source!r}, chunk_id={self.chunk_id}, text={preview!r}…)"
 
-
-# ---------------------------------------------------------------------------
-# 1. Document Loader
-# ---------------------------------------------------------------------------
 
 class DocumentLoader:
     """
@@ -113,8 +94,6 @@ class DocumentLoader:
 
         return documents
 
-    # --- private helpers ---
-
     @staticmethod
     def _load_txt(path: Path) -> str:
         return path.read_text(encoding="utf-8", errors="replace")
@@ -140,22 +119,8 @@ class DocumentLoader:
         return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
 
 
-# ---------------------------------------------------------------------------
-# 2. Text Preprocessor
-# ---------------------------------------------------------------------------
-
 class TextPreprocessor:
-    """
-    Cleans and normalises text for embedding / search.
-
-    Pipeline:
-      raw text
-        → lowercase
-        → remove extra whitespace / punctuation
-        → tokenise (NLTK word_tokenize)
-        → remove stop words
-        → lemmatise (pymorphy2 for Russian; falls back to stem-only for EN)
-    """
+    """Cleans and normalises text for embedding / search."""
 
     def __init__(self, language: str = "russian"):
         self.language = language
@@ -182,7 +147,6 @@ class TextPreprocessor:
         """Return base forms. Uses pymorphy2 for Russian if available."""
         if _PYMORPHY_AVAILABLE:
             return [_morph.parse(t)[0].normal_form for t in tokens]
-        # Fallback: return tokens as-is (no EN lemmatiser added to keep deps light)
         return tokens
 
     def preprocess(self, text: str) -> str:
@@ -201,18 +165,8 @@ class TextPreprocessor:
         return self.clean(text)
 
 
-# ---------------------------------------------------------------------------
-# 3. Text Chunker
-# ---------------------------------------------------------------------------
-
 class TextChunker:
-    """
-    Splits text into overlapping chunks.
-
-    Uses a recursive strategy (similar to LangChain's
-    RecursiveCharacterTextSplitter): tries to split on paragraph
-    boundaries first, then sentence boundaries, then raw characters.
-    """
+    """Splits text into overlapping chunks using a recursive separator strategy."""
 
     SEPARATORS = ["\n\n", "\n", ". ", "! ", "? ", " ", ""]
 
@@ -240,8 +194,6 @@ class TextChunker:
                 ))
         return result
 
-    # --- private ---
-
     def _recursive_split(self, text: str, separators: list[str]) -> list[str]:
         if not separators:
             return self._split_by_chars(text)
@@ -261,7 +213,6 @@ class TextChunker:
             else:
                 if current:
                     chunks.append(current)
-                # part itself may be too long → recurse with next separator
                 if len(part) > self.chunk_size:
                     chunks.extend(self._recursive_split(part, rest))
                     current = ""

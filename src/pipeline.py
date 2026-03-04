@@ -1,13 +1,4 @@
-"""
-RAG Pipeline
-============
-Ties together all components into two high-level operations:
-
-  1. ingest(directory)  — load documents → chunk → embed → store
-  2. query(question)    — embed query → retrieve → generate → return answer
-
-This is the single entry-point that main.py and demo.py use.
-"""
+"""RAG pipeline: ingest documents and answer questions."""
 
 from __future__ import annotations
 
@@ -22,24 +13,12 @@ from src.vector_store import VectorStore
 
 
 class RAGPipeline:
-    """
-    Full RAG pipeline.
-
-    Example
-    -------
-    pipeline = RAGPipeline()
-    pipeline.ingest("data/documents")
-    answer = pipeline.query("Что такое RAG?")
-    print(answer)
-    """
 
     def __init__(self, cfg: Config | None = None, llm_provider: str | None = None):
         cfg = cfg or default_config
 
-        # Shared embedding model (used for both indexing and querying)
         self._embedding = EmbeddingModel(cfg.EMBEDDING_MODEL)
 
-        # Document pipeline
         self._loader = DocumentLoader()
         self._preprocessor = TextPreprocessor(language="russian")
         self._chunker = TextChunker(
@@ -47,7 +26,6 @@ class RAGPipeline:
             chunk_overlap=cfg.CHUNK_OVERLAP,
         )
 
-        # Vector store + retriever
         self._store = VectorStore(
             embedding_model=self._embedding,
             persist_dir=cfg.CHROMA_DIR,
@@ -55,14 +33,9 @@ class RAGPipeline:
         )
         self._retriever = Retriever(self._store)
 
-        # LLM generator
         self._generator: BaseGenerator = get_generator(llm_provider or cfg.LLM_PROVIDER)
 
         self._top_k = cfg.TOP_K
-
-    # ------------------------------------------------------------------
-    # Ingestion
-    # ------------------------------------------------------------------
 
     def ingest(self, directory: str | Path) -> int:
         """
@@ -101,10 +74,6 @@ class RAGPipeline:
         self._store.add_documents(chunks)
         return len(chunks)
 
-    # ------------------------------------------------------------------
-    # Query
-    # ------------------------------------------------------------------
-
     def query(
         self,
         question: str,
@@ -124,7 +93,6 @@ class RAGPipeline:
         """
         top_k = top_k or self._top_k
 
-        # Retrieve relevant chunks
         if use_mmr:
             hits = self._retriever.retrieve_mmr(question, top_k=top_k)
         else:
@@ -136,7 +104,6 @@ class RAGPipeline:
                 return {"answer": msg, "sources": []}
             return msg
 
-        # Format context and generate answer
         context = self._retriever.format_context(hits)
         answer = self._generator.generate(question, context)
 
@@ -148,10 +115,6 @@ class RAGPipeline:
             return {"answer": answer, "sources": sources}
 
         return answer
-
-    # ------------------------------------------------------------------
-    # Utilities
-    # ------------------------------------------------------------------
 
     def clear_index(self) -> None:
         """Remove all indexed documents."""

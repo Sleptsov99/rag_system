@@ -32,10 +32,8 @@ def cmd_query(args, pipeline: RAGPipeline) -> None:
         sys.exit(1)
 
     if args.question:
-        # Single query mode
         _ask(pipeline, args.question, args.mmr, args.sources, args.top_k)
     else:
-        # Interactive mode
         print(f"\nRAG system ready ({pipeline.document_count} chunks indexed).")
         print("Type your question and press Enter. Type 'exit' to quit.\n")
         while True:

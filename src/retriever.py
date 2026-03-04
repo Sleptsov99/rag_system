@@ -1,12 +1,4 @@
-"""
-Retriever
-=========
-Takes a user query, retrieves relevant chunks from the vector store,
-and formats them into a context string for the LLM.
-
-Optional: MMR (Maximal Marginal Relevance) re-ranking to reduce
-redundancy among retrieved chunks.
-"""
+"""Semantic retriever with optional MMR re-ranking."""
 
 from __future__ import annotations
 
@@ -17,23 +9,9 @@ from src.vector_store import VectorStore
 
 
 class Retriever:
-    """
-    Semantic retriever with optional MMR re-ranking.
-
-    Standard flow:
-        hits = retriever.retrieve("Что такое НДС?")
-        context = retriever.format_context(hits)
-
-    MMR flow (less redundancy, more diversity):
-        hits = retriever.retrieve_mmr("Что такое НДС?", top_k=5, fetch_k=20)
-    """
 
     def __init__(self, vector_store: VectorStore):
         self._store = vector_store
-
-    # ------------------------------------------------------------------
-    # Standard retrieval
-    # ------------------------------------------------------------------
 
     def retrieve(self, query: str, top_k: int | None = None) -> list[dict]:
         """
@@ -41,10 +19,6 @@ class Retriever:
         Results are sorted by score (highest first).
         """
         return self._store.search(query, top_k=top_k or config.TOP_K)
-
-    # ------------------------------------------------------------------
-    # MMR re-ranking
-    # ------------------------------------------------------------------
 
     def retrieve_mmr(
         self,
@@ -74,7 +48,6 @@ class Retriever:
         if len(candidates) <= top_k:
             return candidates
 
-        # We need raw embedding vectors for MMR; re-embed candidates
         embedding_model = self._store._embedding
         query_vec = np.array(embedding_model.embed(query))
         cand_vecs = np.array([
@@ -103,10 +76,6 @@ class Retriever:
             remaining.remove(best_global)
 
         return [candidates[i] for i in selected_indices]
-
-    # ------------------------------------------------------------------
-    # Context formatting
-    # ------------------------------------------------------------------
 
     def format_context(self, hits: list[dict]) -> str:
         """

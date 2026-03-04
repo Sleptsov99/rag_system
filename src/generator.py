@@ -29,10 +29,6 @@ import requests
 
 from config import config
 
-# ---------------------------------------------------------------------------
-# Prompt template
-# ---------------------------------------------------------------------------
-
 SYSTEM_PROMPT = """Ты — точный аналитический ассистент. Твоя задача — давать конкретные, \
 подробные ответы на основе предоставленного контекста из документов.
 
@@ -53,10 +49,6 @@ USER_PROMPT_TEMPLATE = """\
 ### Подробный ответ на основе контекста:"""
 
 
-# ---------------------------------------------------------------------------
-# Abstract base
-# ---------------------------------------------------------------------------
-
 class BaseGenerator(ABC):
     @abstractmethod
     def generate(self, question: str, context: str) -> str:
@@ -66,19 +58,8 @@ class BaseGenerator(ABC):
         return USER_PROMPT_TEMPLATE.format(context=context, question=question)
 
 
-# ---------------------------------------------------------------------------
-# Ollama (local)
-# ---------------------------------------------------------------------------
-
 class OllamaGenerator(BaseGenerator):
-    """
-    Calls the local Ollama server (default: http://localhost:11434).
-
-    Start Ollama:
-        ollama serve
-    Pull a model:
-        ollama pull llama3.2
-    """
+    """Calls the local Ollama server (default: http://localhost:11434)."""
 
     def __init__(self):
         self._url = f"{config.OLLAMA_URL}/api/chat"
@@ -90,7 +71,7 @@ class OllamaGenerator(BaseGenerator):
             "stream": True,
             "keep_alive": "10m",
             "options": {
-                "num_ctx": 4096,       # explicit context window (default 2048 is too small)
+                "num_ctx": 4096,
                 "num_predict": 512,
                 "temperature": 0.1,
             },
@@ -125,15 +106,8 @@ class OllamaGenerator(BaseGenerator):
             return f"[Ошибка Ollama] {exc}"
 
 
-# ---------------------------------------------------------------------------
-# OpenAI
-# ---------------------------------------------------------------------------
-
 class OpenAIGenerator(BaseGenerator):
-    """
-    Uses the OpenAI Chat Completions API.
-    Requires: pip install openai  +  export OPENAI_API_KEY=sk-…
-    """
+    """Uses the OpenAI Chat Completions API. Requires OPENAI_API_KEY env variable."""
 
     def __init__(self):
         try:
@@ -161,16 +135,8 @@ class OpenAIGenerator(BaseGenerator):
             return f"[Ошибка OpenAI] {exc}"
 
 
-# ---------------------------------------------------------------------------
-# Groq (free cloud, OpenAI-compatible)
-# ---------------------------------------------------------------------------
-
 class GroqGenerator(BaseGenerator):
-    """
-    Uses the Groq cloud API (free tier, very fast LPU inference).
-    Needs GROQ_API_KEY environment variable.
-    Sign up at https://console.groq.com
-    """
+    """Uses the Groq cloud API. Requires GROQ_API_KEY env variable."""
 
     def __init__(self):
         try:
@@ -202,10 +168,6 @@ class GroqGenerator(BaseGenerator):
             return f"[Ошибка Groq] {exc}"
 
 
-# ---------------------------------------------------------------------------
-# Dummy (no LLM — useful for testing retrieval)
-# ---------------------------------------------------------------------------
-
 class DummyGenerator(BaseGenerator):
     """Returns the context as-is. Lets you validate retrieval without an LLM."""
 
@@ -216,10 +178,6 @@ class DummyGenerator(BaseGenerator):
             f"Найденный контекст:\n{context}"
         )
 
-
-# ---------------------------------------------------------------------------
-# Factory
-# ---------------------------------------------------------------------------
 
 def get_generator(provider: str | None = None) -> BaseGenerator:
     """Return the appropriate generator based on config or explicit provider."""
