@@ -398,8 +398,10 @@ async def cmd_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @require_access
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     pipeline = _get_pipeline(update.effective_user.id)
-    sources = await asyncio.to_thread(pipeline.list_sources)
-    total_chunks = pipeline.document_count
+    sources, total_chunks = await asyncio.gather(
+        asyncio.to_thread(pipeline.list_sources),
+        asyncio.to_thread(lambda: pipeline.document_count),
+    )
     lines = [
         "<b>Статус индекса:</b>",
         f"• Файлов: {len(sources)}",
@@ -573,7 +575,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await tg_file.download_to_drive(tmp_path)
         pipeline = _get_pipeline(update.effective_user.id)
         n = await asyncio.to_thread(pipeline.ingest_file, tmp_path)
-        total = pipeline.document_count
+        total = await asyncio.to_thread(lambda: pipeline.document_count)
         await update.message.reply_text(
             f"Готово! Проиндексировано <b>{n}</b> чанков из <i>{file_name}</i>.\n"
             f"Всего в индексе: {total} чанков.\n\n"
@@ -609,7 +611,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     pipeline = _get_pipeline(update.effective_user.id)
 
-    if pipeline.document_count == 0:
+    if await asyncio.to_thread(lambda: pipeline.document_count) == 0:
         await update.message.reply_text(
             "Индекс пуст. Сначала отправь файл (.pdf / .docx / .txt)."
         )
@@ -617,7 +619,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     await update.message.chat.send_action("typing")
     question = update.message.text
-    _append_to_history(update.effective_user.id, question)
+    await asyncio.to_thread(_append_to_history, update.effective_user.id, question)
     try:
         answer = await asyncio.to_thread(pipeline.query, question)
         await update.message.reply_text(answer)
