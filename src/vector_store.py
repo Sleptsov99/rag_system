@@ -132,6 +132,14 @@ class VectorStore:
             sources[src] = sources.get(src, 0) + 1
         return [{"source": src, "chunks": n} for src, n in sorted(sources.items())]
 
+    def delete_source(self, source: str) -> int:
+        """Delete all chunks for the given source. Returns number of deleted chunks."""
+        result = self._collection.get(where={"source": source}, include=["metadatas"])
+        ids = result.get("ids", [])
+        if ids:
+            self._collection.delete(ids=ids)
+        return len(ids)
+
     @staticmethod
     def _make_id(doc: Document) -> str:
         safe = doc.source.replace("/", "_").replace("\\", "_").replace(".", "_")

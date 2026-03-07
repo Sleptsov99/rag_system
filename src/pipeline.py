@@ -128,6 +128,10 @@ class RAGPipeline:
         """Return unique indexed files with their chunk counts."""
         return self._store.list_sources()
 
+    def delete_source(self, source: str) -> int:
+        """Delete all chunks for the given source file. Returns number deleted."""
+        return self._store.delete_source(source)
+
     def show_retrieved_chunks(self, question: str, top_k: int | None = None) -> None:
         """Debug helper: print retrieved chunks without calling the LLM."""
         hits = self._retriever.retrieve(question, top_k=top_k or self._top_k)

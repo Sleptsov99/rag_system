@@ -52,6 +52,10 @@ logger = logging.getLogger(__name__)
 
 ASK_PURPOSE = 0  # ConversationHandler state
 
+MAX_FILE_SIZE_MB = 20
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+HISTORY_SIZE = 20
+
 BOT_DESCRIPTION = (
     "Этот бот позволяет загружать документы (PDF, DOCX, TXT) "
     "и задавать вопросы по их содержимому. "
@@ -127,6 +131,28 @@ def _update_registration_status(user_id: int, status: str) -> None:
     if key in regs:
         regs[key]["status"] = status
         _save_registrations(regs)
+
+
+_HISTORY_PATH = Path("data/history.json")
+
+
+def _load_history() -> dict:
+    if not _HISTORY_PATH.exists():
+        return {}
+    try:
+        return json.loads(_HISTORY_PATH.read_text())
+    except Exception:
+        return {}
+
+
+def _append_to_history(user_id: int, question: str) -> None:
+    history = _load_history()
+    key = str(user_id)
+    questions = history.get(key, [])
+    questions.append(question)
+    history[key] = questions[-HISTORY_SIZE:]
+    _HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2))
 
 
 _pipelines: dict[int, RAGPipeline] = {}
@@ -326,8 +352,11 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/start — регистрация / приветствие",
         "/help — эта справка",
         "/about — о боте и авторе",
+        "/status — статус индекса",
         "/files — список загруженных файлов",
-        "/clear — очистить свои документы",
+        "/delete &lt;filename&gt; — удалить конкретный файл из индекса",
+        "/history — история ваших вопросов",
+        "/clear — очистить все документы",
     ]
     if _is_admin(user_id):
         lines += [
@@ -367,9 +396,63 @@ async def cmd_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 @require_access
+async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    pipeline = _get_pipeline(update.effective_user.id)
+    sources = await asyncio.to_thread(pipeline.list_sources)
+    total_chunks = pipeline.document_count
+    lines = [
+        "<b>Статус индекса:</b>",
+        f"• Файлов: {len(sources)}",
+        f"• Чанков: {total_chunks}",
+        f"• Модель эмбеддингов: <code>{default_config.EMBEDDING_MODEL}</code>",
+        f"• LLM провайдер: <code>{default_config.LLM_PROVIDER}</code>",
+    ]
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+
+
+@require_access
+async def cmd_delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not context.args:
+        await update.message.reply_text("Использование: /delete &lt;filename&gt;", parse_mode="HTML")
+        return
+
+    filename = " ".join(context.args)
+    pipeline = _get_pipeline(update.effective_user.id)
+    sources = await asyncio.to_thread(pipeline.list_sources)
+    known = [s["source"] for s in sources]
+
+    if filename not in known:
+        lines = [f"Файл <code>{filename}</code> не найден в индексе."]
+        if known:
+            lines.append("\nДоступные файлы:")
+            lines += [f"• {s}" for s in known]
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+        return
+
+    deleted = await asyncio.to_thread(pipeline.delete_source, filename)
+    await update.message.reply_text(
+        f"Файл <code>{filename}</code> удалён ({deleted} чанков).",
+        parse_mode="HTML",
+    )
+
+
+@require_access
+async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    history = _load_history()
+    questions = history.get(str(update.effective_user.id), [])
+    if not questions:
+        await update.message.reply_text("История вопросов пуста.")
+        return
+    lines = [f"<b>История вопросов (последние {len(questions)}):</b>"]
+    for i, q in enumerate(reversed(questions), 1):
+        lines.append(f"{i}. {q}")
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+
+
+@require_access
 async def cmd_clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     pipeline = _get_pipeline(update.effective_user.id)
-    pipeline.clear_index()
+    await asyncio.to_thread(pipeline.clear_index)
     await update.message.reply_text("Все твои документы удалены из индекса.")
 
 
@@ -471,6 +554,14 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
         return
 
+    if doc.file_size and doc.file_size > MAX_FILE_SIZE_BYTES:
+        size_mb = doc.file_size / 1024 / 1024
+        await update.message.reply_text(
+            f"Файл слишком большой: {size_mb:.1f} МБ. "
+            f"Максимальный размер: {MAX_FILE_SIZE_MB} МБ."
+        )
+        return
+
     await update.message.reply_text("Загружаю и индексирую файл...")
     await update.message.chat.send_action("typing")
 
@@ -526,6 +617,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     await update.message.chat.send_action("typing")
     question = update.message.text
+    _append_to_history(update.effective_user.id, question)
     try:
         answer = await asyncio.to_thread(pipeline.query, question)
         await update.message.reply_text(answer)
@@ -581,7 +673,10 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_approval_callback, pattern=r"^(approve|reject)_\d+$"))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("about", cmd_about))
+    app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("files", cmd_files))
+    app.add_handler(CommandHandler("delete", cmd_delete))
+    app.add_handler(CommandHandler("history", cmd_history))
     app.add_handler(CommandHandler("clear", cmd_clear))
     app.add_handler(CommandHandler("adduser", cmd_adduser))
     app.add_handler(CommandHandler("removeuser", cmd_removeuser))
