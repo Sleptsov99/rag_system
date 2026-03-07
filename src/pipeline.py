@@ -124,6 +124,10 @@ class RAGPipeline:
     def document_count(self) -> int:
         return self._store.count()
 
+    def list_sources(self) -> list[dict]:
+        """Return unique indexed files with their chunk counts."""
+        return self._store.list_sources()
+
     def show_retrieved_chunks(self, question: str, top_k: int | None = None) -> None:
         """Debug helper: print retrieved chunks without calling the LLM."""
         hits = self._retriever.retrieve(question, top_k=top_k or self._top_k)

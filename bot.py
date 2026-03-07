@@ -326,6 +326,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/start — регистрация / приветствие",
         "/help — эта справка",
         "/about — о боте и авторе",
+        "/files — список загруженных файлов",
         "/clear — очистить свои документы",
     ]
     if _is_admin(user_id):
@@ -350,6 +351,19 @@ async def cmd_about(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"{CREATOR_TG}",
         parse_mode="HTML",
     )
+
+
+@require_access
+async def cmd_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    pipeline = _get_pipeline(update.effective_user.id)
+    sources = await asyncio.to_thread(pipeline.list_sources)
+    if not sources:
+        await update.message.reply_text("Индекс пуст. Отправь файл (.pdf / .docx / .txt).")
+        return
+    lines = [f"<b>Загруженные файлы ({len(sources)}):</b>"]
+    for s in sources:
+        lines.append(f"• {s['source']} — {s['chunks']} чанков")
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
 
 @require_access
@@ -567,6 +581,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_approval_callback, pattern=r"^(approve|reject)_\d+$"))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("about", cmd_about))
+    app.add_handler(CommandHandler("files", cmd_files))
     app.add_handler(CommandHandler("clear", cmd_clear))
     app.add_handler(CommandHandler("adduser", cmd_adduser))
     app.add_handler(CommandHandler("removeuser", cmd_removeuser))

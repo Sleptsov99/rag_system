@@ -121,6 +121,17 @@ class VectorStore:
     def count(self) -> int:
         return self._collection.count()
 
+    def list_sources(self) -> list[dict]:
+        """Return unique sources with their chunk counts."""
+        if self._collection.count() == 0:
+            return []
+        result = self._collection.get(include=["metadatas"])
+        sources: dict[str, int] = {}
+        for meta in result["metadatas"]:
+            src = meta.get("source", "unknown")
+            sources[src] = sources.get(src, 0) + 1
+        return [{"source": src, "chunks": n} for src, n in sorted(sources.items())]
+
     @staticmethod
     def _make_id(doc: Document) -> str:
         safe = doc.source.replace("/", "_").replace("\\", "_").replace(".", "_")
